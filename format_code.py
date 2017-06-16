@@ -20,9 +20,9 @@ import itertools
 import argparse
 from multiprocessing import cpu_count
 
-from clang_format import ClangFormat
-from clang_format import Repo
-from clang_format.utils import get_base_dir
+from clang_git_format import ClangFormat
+from clang_git_format import Repo
+from clang_git_format.utils import get_base_dir
 
 import logging
 logging.basicConfig(level=logging.DEBUG)

@@ -1,4 +1,4 @@
-# clang_format - Python wrapper for bulk reformatting
+# clang_git_format - Python wrapper for bulk reformatting of Git repos
 
 Current repository offers an automated solution to the reformatting of entire
 projects managed by Git. It was inspired by [the series of
