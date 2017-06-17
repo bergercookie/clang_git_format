@@ -55,12 +55,13 @@ A list of command-line options is the following. Run `--help` yourself for an
 up-to-date list of options:
 
 
-```sh
+```
 
 $ ./format_code.py --help
 
-usage: format_code.py [-h] [-c CLANG_FORMAT] -g GIT_REPO -a LANG [LANG ...]
-                      [-x REGEX]
+usage: format_code.py [-h] [-c CLANG_FORMAT] -g GIT_REPO [-a LANG [LANG ...]]
+                      [-x REGEX] [-i DIRS_IN [DIRS_IN ...]]
+                      [-o DIRS_OUT [DIRS_OUT ...]]
                       (-l | -L | -p LINT_PATCHES [LINT_PATCHES ...] | -b REFORMAT_BRANCH REFORMAT_BRANCH | -f | -F)
 
 Apply clang-format to a whole Git repository. Execute this script and provide
@@ -71,28 +72,43 @@ files.
 optional arguments:
   -h, --help            show this help message and exit
   -c CLANG_FORMAT, --clang_format CLANG_FORMAT
-                        Path to the clang-format command
+                        Path to the clang-format command.
   -g GIT_REPO, --git_repo GIT_REPO
                         Relative path to the root of the git repo that is to
-                        be formatted/linted
+                        be formatted/linted.
   -a LANG [LANG ...], --lang LANG [LANG ...]
                         Languages used in the repository. This is used to
-                        determinethe files which clang format runs for
+                        determinethe files which clang format runs for.
+                        Default langs: {'const': None, 'help': 'Languages used
+                        in the repository. This is used to determinethe files
+                        which clang format runs for. Default langs: %s.',
+                        'option_strings': ['-a', '--lang'], 'dest': 'lang',
+                        'required': False, 'nargs': '+', 'choices': None,
+                        'default': ['cpp'], 'prog': 'format_code.py',
+                        'container': <argparse._ArgumentGroup object at
+                        0x7f0a9d484b90>, 'type': 'str', 'metavar': None}.
   -x REGEX, --regex REGEX
                         Custom regular expression to apply to the files that
-                        are to be fed to clang-format
+                        are to be fed to clang-format.
+  -i DIRS_IN [DIRS_IN ...], --dirs_in DIRS_IN [DIRS_IN ...]
+                        Sequence of directories. If given clang-format is
+                        going to run for source exclusively in these
+                        directories.
+  -o DIRS_OUT [DIRS_OUT ...], --dirs_out DIRS_OUT [DIRS_OUT ...]
+                        Sequence of directories. If given clang-format is
+                        going to ignore source files in these directories
   -l, --lint            Check if clang-format reports no diffs (clean state).
                         Execute only on files managed by git
   -L, --lint_all        Check if clang-format reports no diffs (clean state).
                         Checked files may or may not be managed by git
   -p LINT_PATCHES [LINT_PATCHES ...], --lint_patches LINT_PATCHES [LINT_PATCHES ...]
                         Check if clang-format reports no diffs (clean state).
-                        Check a list patches, given sequentially after this
+                        Check a list of patches, given sequentially after this
                         flag
   -b REFORMAT_BRANCH REFORMAT_BRANCH, --reformat_branch REFORMAT_BRANCH REFORMAT_BRANCH
                         Reformat a branch given the <start> and <end> commits.
   -f, --format          Run clang-format against files managed by git
   -F, --format_all      Run clang-format against files that may or may not be
-                        managed by the current git repository
+                        managed by the current git repository```
 
 ```
