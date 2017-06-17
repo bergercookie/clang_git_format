@@ -4,7 +4,7 @@ import subprocess
 import re
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("clang-format")
 
 
 class Repo(object):
@@ -21,6 +21,8 @@ class Repo(object):
         languages the repo contains (langs_used). This is used to run
         clang-format only on files designated by the langage
         """
+        logger.info("Initializing repo...")
+
         self.path = path
         self.custom_regex = "(" + custom_regex + ")"
 
@@ -188,8 +190,10 @@ class Repo(object):
 
         files_match = re.compile(
             '{}\\.{}$'.format(self.custom_regex, files_match_str))
-        logger.info("Regexp to find source files: %s" % files_match.pattern)
+        logger.warn("Regexp to find source files: %s" % files_match.pattern)
+
         final_list = [l for l in final_list if files_match.search(l)]
+        logger.warn("Executing clang-format on %d files" % len(final_list))
 
         return final_list
 
@@ -251,8 +255,7 @@ class Repo(object):
         return not self._callgit(["rev-parse", "--verify", branch])
 
     def get_merge_base(self, commit):
-        """Get the merge base between 'commit' and HEAD
-        """
+        """Get the merge base between 'commit' and HEAD"""
         return self._callgito(["merge-base", "HEAD", commit]).rstrip()
 
     def get_branch_name(self):

@@ -13,3 +13,4 @@ CLANG_FORMAT_HTTP_DARWIN_CACHE = "https://s3.amazonaws.com/boxes.10gen.com/build
 CLANG_FORMAT_SOURCE_TAR_BASE = string.Template(
     "clang+llvm-$version-$tar_path/bin/" +
     PROGNAME)
+

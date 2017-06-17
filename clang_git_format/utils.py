@@ -15,11 +15,11 @@ from config import (CLANG_FORMAT_VERSION,
                     CLANG_FORMAT_SOURCE_TAR_BASE, )
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("clang-format")
 
 
 def get_base_dir():
-    """Get the base directory for mongo repo.
+    """Get the base directory for the Git Repo.
 
     This script assumes that it is running in buildscripts/, and uses
     that to find the base directory.

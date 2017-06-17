@@ -15,17 +15,30 @@ import os
 import sys
 import threading
 import time
-import itertools
 import argparse
 from multiprocessing import cpu_count
 
 from clang_git_format import ClangFormat
 from clang_git_format import Repo
-from clang_git_format.utils import get_base_dir
+from clang_git_format import CommitIDTooShort
 
+# setup the logging
 import logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__file__)
+from colorlog import ColoredFormatter
+
+LOG_LEVEL = logging.DEBUG
+LOGFORMAT = ("%(log_color)s%(levelname)-5s%(reset)s "
+             "| %(log_color)s%(message)s%(reset)s")
+
+logging.root.setLevel(LOG_LEVEL)
+formatter = ColoredFormatter(LOGFORMAT)
+stream = logging.StreamHandler()
+stream.setLevel(LOG_LEVEL)
+stream.setFormatter(formatter)
+
+logger = logging.getLogger("clang-format")
+logger.setLevel(LOG_LEVEL)
+logger.addHandler(stream)
 
 
 def parallel_process(items, func):
@@ -45,19 +58,18 @@ def parallel_process(items, func):
     pp_lock = threading.Lock()
 
     def worker():
-        """Worker thread to process work items in parallel
-        """
+        """Worker thread to process work items in parallel. """
         while not pp_event.is_set():
 
             try:
                 item = task_queue.get_nowait()
-                logger.debug("Operating on file: %s" % item)
             except Queue.Empty:
                 # if the queue is empty, exit the worker thread
                 pp_event.set()
                 return
 
             try:
+                logger.debug("Operating on file: %s" % item)
                 ret = func(item)
             finally:
                 # Tell the queue we finished with the item
@@ -106,7 +118,7 @@ class ClangRepoFormatter(object):
 
     def get_repo(self):
         """Return Repo object for the git repository to be formatted."""
-        return [self.git_repo]
+        return self.git_repo
 
     def run(self):
         """Main entry point """
@@ -142,7 +154,6 @@ class ClangRepoFormatter(object):
             '--lang',
             type=str,
             default=default_langs,
-            required=True,
             nargs='+',
             help=("Languages used in the repository. This is used to determine"
                   "the files which clang format runs for. Default langs: %s."
@@ -259,11 +270,8 @@ class ClangRepoFormatter(object):
         """Get a list of files to check from the working tree.
         This will pick up files not managed by git.
         """
-        repos = self.get_repo()
-
-        valid_files = list(
-            itertools.chain.from_iterable(
-                [r.get_working_tree_candidates() for r in repos]))
+        repo = self.get_repo()
+        valid_files = repo.get_working_tree_candidates()
 
         return valid_files
 
@@ -271,12 +279,8 @@ class ClangRepoFormatter(object):
         """Get a list of files that need to be checked
         based on which files are managed by git.
         """
-        repos = self.get_repo()
-
-        valid_files = list(
-            itertools.chain.from_iterable(
-                [r.get_candidates(None) for r in repos]))
-
+        repo = self.get_repo()
+        valid_files = repo.get_candidates(None)
         return valid_files
 
     def get_files_to_check_from_patch(self, patches):
@@ -300,12 +304,8 @@ class ClangRepoFormatter(object):
             check.match(line).group(1) for line in lines if check.match(line)
         ]
 
-        repos = self.get_repo()
-
-        valid_files = list(
-            itertools.chain.from_iterable(
-                [r.get_candidates(candidates) for r in repos]))
-
+        repo = self.get_repo()
+        valid_files = repo.get_candidates(candidates)
         return valid_files
 
     def _get_build_dir(self):
@@ -374,31 +374,48 @@ class ClangRepoFormatter(object):
         files = self.get_files_to_check_working_tree()
         self._format_files(files)
 
-    def reformat_branch(self, commit_prior_to_reformat, commit_after_reformat):
+    def reformat_branch(self, commit_prior_reformat, commit_after_reformat):
         """Reformat a branch made before a clang-format run
-        """
-        if os.getcwd() != get_base_dir():
-            raise ValueError("reformat-branch must be run from the repo root")
 
-        repo = Repo(get_base_dir())
+        :param str commit_prior_reformat The base commit ID connecting the main
+        branch with the branch to be merged
+        :param str commit_prior_reformat The last commit ID to be reformatted
+        and merged into the main branch
+        """
+
+        min_commit_id_len = 5
+
+        # verify given commits lenght
+        if (len(commit_prior_reformat) < min_commit_id_len):
+            raise CommitIDTooShort(commit_prior_reformat,
+                                   min_commit_id_len)
+        if (len(commit_after_reformat) < min_commit_id_len):
+            raise CommitIDTooShort(commit_after_reformat,
+                                   min_commit_id_len)
+
+        old_pwd = os.getcwd()
+        os.chdir(self.get_repo().path)
+
+        repo = self.get_repo()
+
+        ###################################################################3
+        # Validate that the current state is OK
 
         # Validate that user passes valid commits
-        if not repo.is_commit(commit_prior_to_reformat):
+        if not repo.is_commit(commit_prior_reformat):
             raise ValueError(
                 "Commit Prior to Reformat '%s' is not "
-                "a valid commit in this repo" % commit_prior_to_reformat)
-
+                "a valid commit in this repo" % commit_prior_reformat)
         if not repo.is_commit(commit_after_reformat):
             raise ValueError(
                 "Commit After Reformat '%s' is not a valid commit in this repo"
                 % commit_after_reformat)
-
-        if not repo.is_ancestor(commit_prior_to_reformat,
+        if not repo.is_ancestor(commit_prior_reformat,
                                 commit_after_reformat):
             raise ValueError(
                 ("Commit Prior to Reformat '%s' is not a valid ancestor "
                  "of Commit After" + " Reformat '%s' in this repo") %
-                (commit_prior_to_reformat, commit_after_reformat))
+                (commit_prior_reformat, commit_after_reformat))
 
         # Validate the user is on a local branch that has the right merge base
         if repo.is_detached():
@@ -411,25 +428,36 @@ class ClangRepoFormatter(object):
                              "You must have a clean working tree before "
                              "proceeding.")
 
-        merge_base = repo.get_merge_base(commit_prior_to_reformat)
+        # validate that the parent of the stranded commit is the merge base
+        merge_base = repo.get_merge_base(commit_prior_reformat)
+        if (not merge_base[0:min_commit_id_len] ==
+                commit_prior_reformat[0:min_commit_id_len]):
+            raise ValueError("Please rebase your work to '%s' and resolve all "
+                             "conflicts before running this script" %
+                             (commit_prior_reformat))
 
-        if not merge_base == commit_prior_to_reformat:
-            raise ValueError("Please rebase to '%s' and resolve all conflicts "
-                             "before running this script" %
-                             (commit_prior_to_reformat))
+
+        # TODO - How should I change this?
+        main_branch = "mrpt-2.0-devel"
 
         # We assume the target branch is master, it could be a different branch
         # if needed for testing
-        merge_base = repo.get_merge_base("master")
+        merge_base = repo.get_merge_base(main_branch)
 
-        if not merge_base == commit_prior_to_reformat:
-            raise ValueError("This branch appears to already have advanced "
-                             "too far through the merge process")
+        if (not merge_base[0:min_commit_id_len] ==
+                commit_prior_reformat[0:min_commit_id_len]):
+            raise ValueError(("The base commit of the merge (%s) and the "
+                              "start_commit (%s) issued dont match."
+                              % (merge_base, commit_prior_reformat)))
+
+        # End of validations
+        ###################################################################3
 
         # Everything looks good so lets start going through all the commits
         branch_name = repo.get_branch_name()
         new_branch = "%s-reformatted" % branch_name
 
+        # Make sure that this is a new branch
         if repo.does_branch_exist(new_branch):
             raise ValueError("The branch '%s' already exists. "
                              "Please delete the "
@@ -439,7 +467,7 @@ class ClangRepoFormatter(object):
         commits = self.get_list_from_lines(
             repo.log([
                 "--reverse", "--pretty=format:%H",
-                "%s..HEAD" % commit_prior_to_reformat
+                "%s..HEAD" % commit_prior_reformat
             ]))
 
         previous_commit_base = commit_after_reformat
@@ -462,9 +490,9 @@ class ClangRepoFormatter(object):
 
                 # Format each file needed if it was not deleted
                 if not os.path.exists(commit_file):
-                    logger.info("Skipping file '%s' since it has been "
-                                "deleted in commit '%s'" % (commit_file,
-                                                            commit_hash))
+                    logger.warning("Skipping file '%s' since it has been "
+                                   "deleted in commit '%s'"
+                                   % (commit_file, commit_hash))
                     deleted_files.append(commit_file)
                     continue
 
@@ -521,14 +549,19 @@ class ClangRepoFormatter(object):
 
             previous_commit_base = repo.rev_parse(["HEAD"])
 
+
         # Create a new branch to mark the hashes we have been using
         repo.checkout(["-b", new_branch])
 
-        logger.info("reformat-branch is done running.\n")
-        logger.info("A copy of your branch has been made named '%s', "
-                    "and formatted with clang-format.\n" % new_branch)
-        logger.info("The original branch has been left unchanged.")
-        logger.info("The next step is to rebase the new branch on 'master'.")
+        # change back to previous directory
+        os.chdir(old_pwd)
+
+        logger.info("reformat_branch is done running.\n"
+                    "A copy of your branch has been made named '%s',"
+                    "and formatted with clang-format.\n"
+                    "The original branch has been left unchanged."
+                    "The next step is to rebase the new branch on '%s'..."
+                    % (new_branch, main_branch))
 
 
 if __name__ == "__main__":

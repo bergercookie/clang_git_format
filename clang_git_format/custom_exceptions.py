@@ -20,4 +20,19 @@ class CalledProcessError(Exception):
                 % (self.cmd, self.returncode, self.output))
 
 
+class CustomError(BaseException):
+    """Class for implementing custom exceptions"""
+    pass
+
+
+class CommitIDTooShort(CustomError):
+    def __init__(self, commit_id, min_len):
+        self.commit_id = commit_id
+        self.min_len = min_len
+
+
+    def __str__(self):
+        return ("At least %d characters of the commit ID "
+                "hash should be provided. Current commit ID: %s"
+                % (self.min_len, self.commit_id))
 

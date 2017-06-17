@@ -15,9 +15,9 @@
 
 Language:        Cpp
 #BasedOnStyle:  LLVM
-BasedOnStyle: Google
+#BasedOnStyle: Google
 #BasedOnStyle: Chromium
-#BasedOnStyle: Mozilla
+BasedOnStyle: Mozilla
 #BasedOnStyle: WebKit
 # ---
 #AccessModifierOffset: -4
@@ -26,7 +26,7 @@ BasedOnStyle: Google
 #AlignConsecutiveDeclarations: true
 #AlignEscapedNewlinesLeft: true
 #AlignOperands:   false
-#AlignTrailingComments: true
+AlignTrailingComments: false # Excessive inline comments go to the next line (as standard code if true)
 #AllowAllParametersOfDeclarationOnNextLine: true
 #AllowShortBlocksOnASingleLine: false
 #AllowShortCaseLabelsOnASingleLine: false
@@ -76,7 +76,7 @@ BasedOnStyle: Google
 #MacroBlockBegin: ''
 #MacroBlockEnd:   ''
 #MaxEmptyLinesToKeep: 2
-#NamespaceIndentation: None
+NamespaceIndentation: None
 #ObjCBlockIndentWidth: 2
 #ObjCSpaceAfterProperty: false
 #ObjCSpaceBeforeProtocolList: false
@@ -88,10 +88,10 @@ BasedOnStyle: Google
 #PenaltyReturnTypeOnItsOwnLine: 200
 DerivePointerAlignment: false
 #PointerAlignment: Left
-#ReflowComments:  true
+ReflowComments:  true # Should be true, otherwise clang-format doesn't touch comments
 SortIncludes:    false
 #SpaceAfterCStyleCast: false
-#SpaceBeforeAssignmentOperators: true
+SpaceBeforeAssignmentOperators: true
 #SpaceBeforeParens: ControlStatements
 #SpaceInEmptyParentheses: false
 #SpacesBeforeTrailingComments: 2
@@ -101,7 +101,8 @@ SortIncludes:    false
 #SpacesInParentheses: false
 #SpacesInSquareBrackets: false
 #Standard:        Cpp11
-TabWidth:        4
-UseTab:          ForIndentation # other options are Never, Always
-## UseTab:        ForIndentationAndAlignment # Not applicable in 3.8
+#TabWidth:        4
+UseTab:           Never
+# UseTab:        ForIndentationAndAlignment # Not applicable in 3.8
+#UseTab:          ForIndentation # other options are Never, Always
 #---

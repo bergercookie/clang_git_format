@@ -14,7 +14,7 @@ from utils import (
     get_clang_format_from_darwin_cache, )
 
 import logging
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("clang-format")
 
 
 class ClangFormat(object):
