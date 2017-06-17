@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-
 """
 A script that provides:
 1. Ability to grab binaries where possible from LLVM.
@@ -113,7 +112,6 @@ class ClangRepoFormatter(object):
         """Main entry point """
         logger.info("Initializing script...")
 
-
         parser = argparse.ArgumentParser()
         parser.description = ("Apply clang-format to a whole Git repository. "
                               "Execute this script and provide it with the "
@@ -124,62 +122,97 @@ class ClangRepoFormatter(object):
                               "to all the files.")
 
         parser.add_argument(
-            "-c", "--clang_format",
+            "-c",
+            "--clang_format",
             default=None,
             type=str,
-            help="Path to the clang-format command")
+            help="Path to the clang-format command.")
 
         parser.add_argument(
-            '-g', '--git_repo',
+            '-g',
+            '--git_repo',
             type=str,
             required=True,
             help=("Relative path to the root of the git repo that "
-                  "is to be formatted/linted"))
+                  "is to be formatted/linted."))
+
+        default_langs = ["cpp"]
         parser.add_argument(
-            '-a', '--lang',
+            '-a',
+            '--lang',
             type=str,
+            default=default_langs,
             required=True,
             nargs='+',
             help=("Languages used in the repository. This is used to determine"
-                  "the files which clang format runs for"))
+                  "the files which clang format runs for. Default langs: %s."
+                  .format(default_langs)))
         parser.add_argument(
-            '-x', '--regex',
+            '-x',
+            '--regex',
             type=str,
             default="",
             required=False,
             help=("Custom regular expression to apply to the files that are "
-                  "to be fed to clang-format"))
+                  "to be fed to clang-format."))
+        parser.add_argument(
+            '-i',
+            '--dirs_in',
+            type=str,
+            nargs="+",
+            default=[],
+            required=False,
+            help=("Sequence of directories. If given clang-format is going to "
+                  "run for source exclusively in these directories."))
+        parser.add_argument(
+            '-o',
+            '--dirs_out',
+            type=str,
+            default=[],
+            nargs="+",
+            required=False,
+            help=("Sequence of directories. If given clang-format is going to "
+                  "ignore source files in these directories"))
+
+
 
         # Mutually exclusive, internet-related arguments
         commands_group = parser.add_mutually_exclusive_group(required=True)
 
         commands_group.add_argument(
-            "-l", "--lint",
+            "-l",
+            "--lint",
             action="store_true",
             help=("Check if clang-format reports no diffs (clean state). "
                   "Execute only on files managed by git"))
         commands_group.add_argument(
-            "-L", "--lint_all",
+            "-L",
+            "--lint_all",
             action="store_true",
             help=("Check if clang-format reports no diffs (clean state). "
                   "Checked files may or may not be managed by git"))
         commands_group.add_argument(
-            "-p", "--lint_patches",
+            "-p",
+            "--lint_patches",
             default=[],
             nargs='+',
             help=("Check if clang-format reports no diffs (clean state). "
-                  "Check a list patches, given sequentially after this flag"))
+                  "Check a list of patches, given sequentially after this "
+                  "flag"))
         commands_group.add_argument(
-            "-b", "--reformat_branch",
+            "-b",
+            "--reformat_branch",
             default=[],
             nargs=2,
             help=("Reformat a branch given the <start> and <end> commits."))
         commands_group.add_argument(
-            "-f", "--format",
+            "-f",
+            "--format",
             action="store_true",
             help=("Run clang-format against files managed by git"))
         commands_group.add_argument(
-            "-F", "--format_all",
+            "-F",
+            "--format_all",
             action="store_true",
             help=("Run clang-format against files that may or may not "
                   "be managed by the current git repository"))
@@ -191,10 +224,12 @@ class ClangRepoFormatter(object):
                                         self._get_build_dir())
 
         # git repo
-        self.git_repo = Repo(parser_args["git_repo"],
-                             custom_regex=parser_args["regex"])
+        self.git_repo = Repo(
+            parser_args["git_repo"], custom_regex=parser_args["regex"],
+            dirs_in=parser_args["dirs_in"],
+            dirs_out=parser_args["dirs_out"],
+        )
         self.git_repo.langs_used = parser_args['lang']
-        # TODO - ign, run ?
 
         # determine your action based on the user input
         if parser_args["lint"]:
@@ -215,13 +250,10 @@ class ClangRepoFormatter(object):
             logger.fatal("Unexpected error in the parsing of command line "
                          "arguments! Exiting.")
 
-
-
     def get_list_from_lines(self, lines):
         """"Convert a string containing a series of lines into a list of strings
         """
         return [line.rstrip() for line in lines.splitlines()]
-
 
     def get_files_to_check_working_tree(self):
         """Get a list of files to check from the working tree.
@@ -229,12 +261,11 @@ class ClangRepoFormatter(object):
         """
         repos = self.get_repo()
 
-        valid_files = list(itertools.chain.from_iterable(
-            [r.get_working_tree_candidates()
-             for r in repos]))
+        valid_files = list(
+            itertools.chain.from_iterable(
+                [r.get_working_tree_candidates() for r in repos]))
 
         return valid_files
-
 
     def get_files_to_check(self):
         """Get a list of files that need to be checked
@@ -242,11 +273,11 @@ class ClangRepoFormatter(object):
         """
         repos = self.get_repo()
 
-        valid_files = list(itertools.chain.from_iterable(
-            [r.get_candidates(None) for r in repos]))
+        valid_files = list(
+            itertools.chain.from_iterable(
+                [r.get_candidates(None) for r in repos]))
 
         return valid_files
-
 
     def get_files_to_check_from_patch(self, patches):
         """Take a list of patch files generated by git diff, and scan them for a
@@ -265,16 +296,17 @@ class ClangRepoFormatter(object):
             with open(patch, "rb") as infile:
                 lines += infile.readlines()
 
-        candidates = [check.match(line).group(1)
-                      for line in lines if check.match(line)]
+        candidates = [
+            check.match(line).group(1) for line in lines if check.match(line)
+        ]
 
         repos = self.get_repo()
 
-        valid_files = list(itertools.chain.from_iterable(
-            [r.get_candidates(candidates) for r in repos]))
+        valid_files = list(
+            itertools.chain.from_iterable(
+                [r.get_candidates(candidates) for r in repos]))
 
         return valid_files
-
 
     def _get_build_dir(self):
         """Get the location of a build directory in case we need to download
@@ -282,7 +314,6 @@ class ClangRepoFormatter(object):
 
         """
         return os.path.join(os.path.curdir, "build")
-
 
     def _lint_files(self, files):
         """Lint a list of files with clang-format
@@ -294,7 +325,6 @@ class ClangRepoFormatter(object):
             logger.error("Code Style does not match coding style")
             sys.exit(1)
 
-
     def lint_patch(self, infile):
         """Lint patch command entry point
         """
@@ -304,7 +334,6 @@ class ClangRepoFormatter(object):
         if files:
             self._lint_files(files)
 
-
     def lint(self):
         """Lint files command entry point
         """
@@ -312,7 +341,6 @@ class ClangRepoFormatter(object):
         self._lint_files(files)
 
         return True
-
 
     def lint_all(self):
         """Lint files command entry point based on working tree (some files may
@@ -323,18 +351,15 @@ class ClangRepoFormatter(object):
 
         return True
 
-
     def _format_files(self, files):
         """Format a list of files with clang-format
         """
-        format_clean = parallel_process([os.path.abspath(f)
-                                        for f in files],
+        format_clean = parallel_process([os.path.abspath(f) for f in files],
                                         self.clang_format.format_func)
 
         if not format_clean:
             logger.error("failed to format files")
             sys.exit(1)
-
 
     def format_func(self):
         """Format files command entry point
@@ -349,10 +374,7 @@ class ClangRepoFormatter(object):
         files = self.get_files_to_check_working_tree()
         self._format_files(files)
 
-
-    def reformat_branch(self,
-                        commit_prior_to_reformat,
-                        commit_after_reformat):
+    def reformat_branch(self, commit_prior_to_reformat, commit_after_reformat):
         """Reformat a branch made before a clang-format run
         """
         if os.getcwd() != get_base_dir():
@@ -364,8 +386,7 @@ class ClangRepoFormatter(object):
         if not repo.is_commit(commit_prior_to_reformat):
             raise ValueError(
                 "Commit Prior to Reformat '%s' is not "
-                "a valid commit in this repo"
-                % commit_prior_to_reformat)
+                "a valid commit in this repo" % commit_prior_to_reformat)
 
         if not repo.is_commit(commit_after_reformat):
             raise ValueError(
@@ -376,9 +397,8 @@ class ClangRepoFormatter(object):
                                 commit_after_reformat):
             raise ValueError(
                 ("Commit Prior to Reformat '%s' is not a valid ancestor "
-                 "of Commit After" +
-                 " Reformat '%s' in this repo")
-                % (commit_prior_to_reformat, commit_after_reformat))
+                 "of Commit After" + " Reformat '%s' in this repo") %
+                (commit_prior_to_reformat, commit_after_reformat))
 
         # Validate the user is on a local branch that has the right merge base
         if repo.is_detached():
@@ -395,8 +415,8 @@ class ClangRepoFormatter(object):
 
         if not merge_base == commit_prior_to_reformat:
             raise ValueError("Please rebase to '%s' and resolve all conflicts "
-                             "before running this script"
-                             % (commit_prior_to_reformat))
+                             "before running this script" %
+                             (commit_prior_to_reformat))
 
         # We assume the target branch is master, it could be a different branch
         # if needed for testing
@@ -413,12 +433,14 @@ class ClangRepoFormatter(object):
         if repo.does_branch_exist(new_branch):
             raise ValueError("The branch '%s' already exists. "
                              "Please delete the "
-                             "branch '%s', or rename the current branch."
-                             % (new_branch, new_branch))
+                             "branch '%s', or rename the current branch." %
+                             (new_branch, new_branch))
 
-        commits = self.get_list_from_lines(repo.log(
-            ["--reverse", "--pretty=format:%H", "%s..HEAD"
-             % commit_prior_to_reformat]))
+        commits = self.get_list_from_lines(
+            repo.log([
+                "--reverse", "--pretty=format:%H",
+                "%s..HEAD" % commit_prior_to_reformat
+            ]))
 
         previous_commit_base = commit_after_reformat
 
@@ -441,8 +463,8 @@ class ClangRepoFormatter(object):
                 # Format each file needed if it was not deleted
                 if not os.path.exists(commit_file):
                     logger.info("Skipping file '%s' since it has been "
-                                "deleted in commit '%s'"
-                                % (commit_file, commit_hash))
+                                "deleted in commit '%s'" % (commit_file,
+                                                            commit_hash))
                     deleted_files.append(commit_file)
                     continue
 
@@ -450,12 +472,11 @@ class ClangRepoFormatter(object):
                     self.clang_format.format_func(commit_file)
                 else:
                     logger.info("Skipping file '%s' since it is not a "
-                                "file clang_format should format"
-                                % commit_file)
+                                "file clang_format should format" % commit_file)
 
             # Check if anything needed reformatting, and if so amend the commit
             if not repo.is_working_tree_dirty():
-                print ("Commit %s needed no reformatting" % commit_hash)
+                print("Commit %s needed no reformatting" % commit_hash)
             else:
                 repo.commit(["--all", "--amend", "--no-edit"])
 
@@ -469,9 +490,11 @@ class ClangRepoFormatter(object):
 
             # Copy each file from the reformatted commit on top of the post
             # reformat
-            diff_files = self.get_list_from_lines(repo.diff(
-                ["%s~..%s" % (previous_commit, previous_commit),
-                 "--name-only"]))
+            diff_files = self.get_list_from_lines(
+                repo.diff([
+                    "%s~..%s" % (previous_commit, previous_commit),
+                    "--name-only"
+                ]))
 
             for diff_file in diff_files:
                 # If the file was deleted in the commit we are reformatting, we
@@ -481,8 +504,8 @@ class ClangRepoFormatter(object):
                     continue
 
                 # The file has been added or modified, continue as normal
-                file_contents = repo.show(["%s:%s"
-                                           % (previous_commit, diff_file)])
+                file_contents = repo.show(
+                    ["%s:%s" % (previous_commit, diff_file)])
 
                 root_dir = os.path.dirname(diff_file)
                 if root_dir and not os.path.exists(root_dir):
@@ -503,8 +526,7 @@ class ClangRepoFormatter(object):
 
         logger.info("reformat-branch is done running.\n")
         logger.info("A copy of your branch has been made named '%s', "
-                    "and formatted with clang-format.\n"
-                    % new_branch)
+                    "and formatted with clang-format.\n" % new_branch)
         logger.info("The original branch has been left unchanged.")
         logger.info("The next step is to rebase the new branch on 'master'.")
 

@@ -3,14 +3,18 @@ import os
 import subprocess
 import re
 
+import logging
+logger = logging.getLogger(__name__)
+
 
 class Repo(object):
     """Class encapsulates all knowledge about a git repository, and its metadata
     to run clang-format.
     """
-    def __init__(self, path, custom_regex=""):
+
+    def __init__(self, path, custom_regex="", dirs_in=[], dirs_out=[]):
         """Initialization method.
-        
+
         :path str Relative path to the Root of the repository
 
         WARNING: After initialization of the Repo, users should set the
@@ -32,7 +36,17 @@ class Repo(object):
             None: [],
         }
 
-        self._langs_used = []
+        assert isinstance(dirs_in, list) and\
+            "dirs_in should be a list of directories. Instead got {}"\
+            .format(dirs_in)
+        self.dirs_in = dirs_in
+        assert isinstance(dirs_out, list) and\
+            "dirs_out should be a list of directories. Instead got {}"\
+            .format(dirs_out)
+        self.dirs_out = dirs_out
+
+        # default language is cpp
+        self._langs_used = ["cpp"]
 
         self.root = self._get_root()
 
@@ -43,14 +57,19 @@ class Repo(object):
     @langs_used.setter
     def langs_used(self, langs_in):
         """Set the programming languages that the repo contains files of."""
+
+        if not langs_in:
+            return
+
         assert isinstance(langs_in, list) and \
             ("The languages of the repo should be provided in a list of "
              "strings.\nExiting...")
 
-        assert all([i for i in langs_in if i in
-                    self.langs_to_file_endings.keys()]) and \
-            ("Some of the given languages (%s) are not "
-             "available.\nExiting.".format(langs_in))
+        if set([i for i in langs_in
+                if i in self.langs_to_file_endings.keys()]) != set(langs_in):
+            logger.fatal("The following languages are available to use: %s",
+                         self.langs_to_file_endings.keys())
+            exit(1)
 
         self._langs_used = langs_in
 
@@ -64,8 +83,10 @@ class Repo(object):
         # These two flags are the equivalent of -C in newer versions of Git but
         # we use these to support versions pre 1.8.5 but it depends on the
         # command and what the current directory is
-        return callo(['git', '--git-dir', os.path.join(self.path, ".git"),
-                      '--work-tree', self.path] + args)
+        return callo([
+            'git', '--git-dir',
+            os.path.join(self.path, ".git"), '--work-tree', self.path
+        ] + args)
 
     def _callgit(self, args):
         """Call git for this repository without capturing output
@@ -74,9 +95,10 @@ class Repo(object):
         # These two flags are the equivalent of -C in newer versions of Git but
         # we use these to support versions pre 1.8.5 but it depends on the
         # command and what the current directory is
-        return subprocess.call(['git', '--git-dir',
-                                os.path.join(self.path, ".git"),
-                                '--work-tree', self.path] + args)
+        return subprocess.call([
+            'git', '--git-dir',
+            os.path.join(self.path, ".git"), '--work-tree', self.path
+        ] + args)
 
     def _get_local_dir(self, path):
         """Get a directory path relative to the git root directory
@@ -92,14 +114,15 @@ class Repo(object):
         """
         if candidates is not None and len(candidates) > 0:
             candidates = [self._get_local_dir(f) for f in candidates]
-            valid_files = list(set(candidates).intersection(
-                self.get_candidate_files()))
+            valid_files = list(
+                set(candidates).intersection(self.get_candidate_files()))
         else:
             valid_files = list(self.get_candidate_files())
 
         # Get the full file name here
-        valid_files = [os.path.normpath(os.path.join(self.root, f))
-                       for f in valid_files]
+        valid_files = [
+            os.path.normpath(os.path.join(self.root, f)) for f in valid_files
+        ]
 
         return valid_files
 
@@ -122,11 +145,38 @@ class Repo(object):
         This constitutes a backbone method for fetching the list of files on
         which clang-format operates on.
         """
+        final_list = [] # final list of files to be processed
         gito = self._callgito(cmd)
 
         # This allows us to pick all the interesting files
         # in the mongo and mongo-enterprise repos
         file_list = [line.rstrip() for line in gito.splitlines()]
+
+        # If dirs_in is given use only those files that have that directory in
+        # their body
+        valid_files_in = []
+        if self.dirs_in:
+            for line in file_list:
+                if any([self._dir_filter(d, line, do_include=True)
+                        for d in self.dirs_in]):
+                    valid_files_in.append(line)
+                    continue
+        else:
+            valid_files_in = file_list
+
+        # If dirs_out is given use only those files that have that directory in
+        # their body
+        valid_files_out = []
+        if self.dirs_out:
+            for line in valid_files_in:
+                if all([self._dir_filter(d, line, do_include=False)
+                        for d in self.dirs_out]):
+                    valid_files_out.append(line)
+                    continue
+        else:
+            valid_files_out = valid_files_in
+
+        final_list = valid_files_out
 
         files_match_str = ""
         for lang in self.langs_used:
@@ -136,15 +186,16 @@ class Repo(object):
 
         files_match_str = "(" + files_match_str + ")"
 
-        files_match = re.compile('{}\\.{}$'.format(self.custom_regex,
-                                                   files_match_str))
-        print files_match.pattern
-        file_list = [a for a in file_list if files_match.search(a)]
+        files_match = re.compile(
+            '{}\\.{}$'.format(self.custom_regex, files_match_str))
+        logger.info("Regexp to find source files: %s" % files_match.pattern)
+        final_list = [l for l in final_list if files_match.search(l)]
 
-        return file_list
+        return final_list
 
     def get_candidate_files(self):
-        """Query git to get a list of all files in the repo to consider for analysis
+        """Query git to get a list of all files in the repo to consider for
+        analysis
         """
         return self._git_ls_files(["ls-files", "--cached"])
 
@@ -163,8 +214,9 @@ class Repo(object):
         valid_files = list(self.get_working_tree_candidate_files())
 
         # Get the full file name here
-        valid_files = [os.path.normpath(os.path.join(self.root, f))
-                       for f in valid_files]
+        valid_files = [
+            os.path.normpath(os.path.join(self.root, f)) for f in valid_files
+        ]
 
         return valid_files
 
@@ -178,8 +230,7 @@ class Repo(object):
         """Is the specified parent hash an ancestor of child hash?
         """
         # merge base returns 0 if parent is an ancestor of child
-        return not self._callgit(
-            ["merge-base", "--is-ancestor", parent, child])
+        return not self._callgit(["merge-base", "--is-ancestor", parent, child])
 
     def is_commit(self, sha1):
         """Is the specified hash a valid git commit?
@@ -206,8 +257,8 @@ class Repo(object):
 
     def get_branch_name(self):
         """Get the current branch name, short form
-           This returns "master", not "refs/head/master"
-           Will not work if the current branch is detached
+        This returns "master", not "refs/head/master"
+        Will not work if the current branch is detached
         """
         branch = self.rev_parse(["--abbrev-ref", "HEAD"])
         if branch == "HEAD":
@@ -255,5 +306,17 @@ class Repo(object):
         """
         return self._callgito(["show"] + command)
 
+    @staticmethod
+    def _dir_filter(d, line, do_include=True):
+        """Return True if line includes/doesn't include the given directory
+        d.
+        """
+        ret = False
+        if do_include:
+            ret = d in line
+        else:
+            ret = d not in line
+
+        return ret
 
 

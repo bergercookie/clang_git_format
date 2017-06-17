@@ -6,16 +6,12 @@ import sys
 import threading
 import subprocess
 
-from config import (CLANG_FORMAT_VERSION,
-                    CLANG_FORMAT_SHORT_VERSION, 
-                    PROGNAME)
+from config import (CLANG_FORMAT_VERSION, CLANG_FORMAT_SHORT_VERSION, PROGNAME)
 
-
-from utils import (callo,
-                   get_clang_format_from_linux_cache,
-                   get_clang_format_from_darwin_cache, )
-
-
+from utils import (
+    callo,
+    get_clang_format_from_linux_cache,
+    get_clang_format_from_darwin_cache, )
 
 import logging
 logger = logging.getLogger(__name__)
@@ -25,6 +21,7 @@ class ClangFormat(object):
     """Class encapsulates finding a suitable copy of clang-format,
     and linting/formating an individual file
     """
+
     def __init__(self, clang_path, cache_dir):
         """Initializataion method.
 
@@ -44,11 +41,11 @@ class ClangFormat(object):
         if self.clang_path is None:
             # Check for various versions staring with binaries with version
             # specific suffixes in the user's path
-            programs = [PROGNAME + "-" +
-                        CLANG_FORMAT_VERSION,
-                        PROGNAME + "-" +
-                        CLANG_FORMAT_SHORT_VERSION,
-                        PROGNAME, ]
+            programs = [
+                PROGNAME + "-" + CLANG_FORMAT_VERSION,
+                PROGNAME + "-" + CLANG_FORMAT_SHORT_VERSION,
+                PROGNAME,
+            ]
 
             if sys.platform == "win32":
                 for i in range(len(programs)):
@@ -83,11 +80,10 @@ class ClangFormat(object):
             if not os.path.isdir(cache_dir):
                 os.makedirs(cache_dir)
 
-            self.clang_path = os.clang_path.join(
-                cache_dir,
-                PROGNAME + "-" +
-                CLANG_FORMAT_VERSION +
-                self.clang_format_progname_ext)
+            self.clang_path = os.path.join(cache_dir,
+                                           PROGNAME + "-" + CLANG_FORMAT_VERSION
+                                           + self.clang_format_progname_ext)
+
 
             # Download a new version if the cache is empty or stale
             if not os.path.isfile(self.clang_path) \
@@ -124,8 +120,8 @@ class ClangFormat(object):
             return True
 
         logger.warn("clang-format found in path, "
-                    "but incorrect version found at " +
-                    self.clang_path + " with version: " + cf_version)
+                    "but incorrect version found at " + self.clang_path +
+                    " with version: " + cf_version)
 
         return False
 
@@ -149,8 +145,8 @@ class ClangFormat(object):
                 with self.print_lock:
                     logger.error("Found diff for " + file_name)
                     logger.info("To fix formatting errors, run %s "
-                                "--style=file -i %s"
-                                % (self.clang_path, file_name))
+                                "--style=file -i %s" % (self.clang_path,
+                                                        file_name))
                     for line in result:
                         logger.info(line.rstrip())
 
@@ -170,10 +166,8 @@ class ClangFormat(object):
             return True
 
         # Update the file with clang-format
-        formatted = not subprocess.call([self.clang_path,
-                                         "--style=file",
-                                         "-i",
-                                         file_name])
+        formatted = not subprocess.call(
+            [self.clang_path, "--style=file", "-i", file_name])
 
         # Version 3.8 generates files like foo.cpp~RF83372177.TMP when it
         # formats foo.cpp on Windows, we must clean these up
@@ -183,6 +177,3 @@ class ClangFormat(object):
                 os.unlink(fglob)
 
         return formatted
-
-
-

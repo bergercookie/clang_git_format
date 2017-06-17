@@ -64,9 +64,8 @@ def get_clang_format_from_cache_and_extract(url, tarball_ext):
     temp_tar_file = os.path.join(dest_dir, "temp.tar" + tarball_ext)
 
     # Download from file
-    logger.info("Downloading clang-format %s from %s, saving to %s"
-                % (CLANG_FORMAT_VERSION,
-                   url, temp_tar_file))
+    logger.info("Downloading clang-format (Version = %s) from %s, saving to \"%s\""
+                % (CLANG_FORMAT_VERSION, url, temp_tar_file))
     urllib.urlretrieve(url, temp_tar_file)
 
     extract_clang_format(temp_tar_file)
