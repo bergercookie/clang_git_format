@@ -153,6 +153,19 @@ class Repo(object):
         # This allows us to pick all the interesting files
         # in the mongo and mongo-enterprise repos
         file_list = [line.rstrip() for line in gito.splitlines()]
+        file_list = self.filter_files_by_dir(file_list)
+
+
+        files_regexp = self.get_files_regexp()
+        final_list = [l for l in final_list if files_regexp.search(l)]
+        logger.warn("Executing clang-format on %d files" % len(final_list))
+
+        return final_list
+
+    def filter_files_by_dir(self, file_list):
+        """Filter the given list of files based on the list of specified
+        directories.
+        """
 
         # If dirs_in is given use only those files that have that directory in
         # their body
@@ -178,7 +191,17 @@ class Repo(object):
         else:
             valid_files_out = valid_files_in
 
-        final_list = valid_files_out
+        return valid_files_out
+
+
+    def get_files_regexp(self):
+        """Return the regular expression that is used to filter the files for
+        which clang format is actually going to run.
+
+        This takes in account
+        - Language suffixes that are to be considered
+        - User-provided custom regexp
+        """
 
         files_match_str = ""
         for lang in self.langs_used:
@@ -186,16 +209,14 @@ class Repo(object):
             for ext in lang_exts + [ext.upper() for ext in lang_exts]:
                 files_match_str += ext + "|"
 
+
         files_match_str = "(" + files_match_str + ")"
-
-        files_match = re.compile(
+        files_regexp = re.compile(
             '{}\\.{}$'.format(self.custom_regex, files_match_str))
-        logger.warn("Regexp to find source files: %s" % files_match.pattern)
+        logger.warn("Regexp to find source files: %s" % files_regexp.pattern)
 
-        final_list = [l for l in final_list if files_match.search(l)]
-        logger.warn("Executing clang-format on %d files" % len(final_list))
+        return files_regexp
 
-        return final_list
 
     def get_candidate_files(self):
         """Query git to get a list of all files in the repo to consider for

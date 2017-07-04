@@ -214,8 +214,10 @@ class ClangRepoFormatter(object):
             "-b",
             "--reformat_branch",
             default=[],
-            nargs=2,
-            help=("Reformat a branch given the <start> and <end> commits."))
+            nargs=3,
+            help=("Reformat CURRENT branch given the <start-1> and"
+                  " <end-2> commits."
+                  " Finally rebase it on top of <branch-3> branch"))
         commands_group.add_argument(
             "-f",
             "--format",
@@ -252,7 +254,8 @@ class ClangRepoFormatter(object):
         elif len(parser_args["reformat_branch"]):
             start = parser_args["reformat_branch"][0]
             end = parser_args["reformat_branch"][1]
-            self.reformat_branch(start, end)
+            main_branch = parser_args["reformat_branch"][2]
+            self.reformat_branch(start, end, main_branch)
         elif parser_args["format"]:
             self.format_func()
         elif parser_args["format_all"]:
@@ -374,7 +377,8 @@ class ClangRepoFormatter(object):
         files = self.get_files_to_check_working_tree()
         self._format_files(files)
 
-    def reformat_branch(self, commit_prior_reformat, commit_after_reformat):
+    def reformat_branch(self, commit_prior_reformat, commit_after_reformat,
+                        main_branch):
         """Reformat a branch made before a clang-format run
 
         :param str commit_prior_reformat The base commit ID connecting the main
@@ -410,12 +414,12 @@ class ClangRepoFormatter(object):
             raise ValueError(
                 "Commit After Reformat '%s' is not a valid commit in this repo"
                 % commit_after_reformat)
-        if not repo.is_ancestor(commit_prior_reformat,
-                                commit_after_reformat):
-            raise ValueError(
-                ("Commit Prior to Reformat '%s' is not a valid ancestor "
-                 "of Commit After" + " Reformat '%s' in this repo") %
-                (commit_prior_reformat, commit_after_reformat))
+#         if not repo.is_ancestor(commit_prior_reformat,
+                                # commit_after_reformat):
+            # raise ValueError(
+                # ("Commit Prior to Reformat '%s' is not a valid ancestor "
+                 # "of Commit After" + " Reformat '%s' in this repo") %
+                # (commit_prior_reformat, commit_after_reformat))
 
         # Validate the user is on a local branch that has the right merge base
         if repo.is_detached():
@@ -432,23 +436,17 @@ class ClangRepoFormatter(object):
         merge_base = repo.get_merge_base(commit_prior_reformat)
         if (not merge_base[0:min_commit_id_len] ==
                 commit_prior_reformat[0:min_commit_id_len]):
-            raise ValueError("Please rebase your work to '%s' and resolve all "
+            raise ValueError("Please **rebase** your work to '%s' and resolve all "
                              "conflicts before running this script" %
                              (commit_prior_reformat))
 
-
-        # TODO - How should I change this?
-        main_branch = "mrpt-2.0-devel"
-
-        # We assume the target branch is master, it could be a different branch
-        # if needed for testing
         merge_base = repo.get_merge_base(main_branch)
 
-        if (not merge_base[0:min_commit_id_len] ==
-                commit_prior_reformat[0:min_commit_id_len]):
-            raise ValueError(("The base commit of the merge (%s) and the "
-                              "start_commit (%s) issued dont match."
-                              % (merge_base, commit_prior_reformat)))
+        # if (not merge_base[0:min_commit_id_len] ==
+                # commit_prior_reformat[0:min_commit_id_len]):
+            # raise ValueError(("The base commit of the merge (%s) and the "
+                              # "start_commit (%s) issued don't match."
+                              # % (merge_base, commit_prior_reformat)))
 
         # End of validations
         ###################################################################3
@@ -471,8 +469,7 @@ class ClangRepoFormatter(object):
             ]))
 
         previous_commit_base = commit_after_reformat
-
-        files_match = re.compile('\\.(h|cpp|js)$')
+        files_to_check = self.get_files_to_check()
 
         # Go through all the commits the user made on the local branch and
         # migrate to a new branch that is based on post_reformat commits instead
@@ -496,7 +493,7 @@ class ClangRepoFormatter(object):
                     deleted_files.append(commit_file)
                     continue
 
-                if files_match.search(commit_file):
+                if commit_file in files_to_check
                     self.clang_format.format_func(commit_file)
                 else:
                     logger.info("Skipping file '%s' since it is not a "
