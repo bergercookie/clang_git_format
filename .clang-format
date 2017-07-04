@@ -21,12 +21,12 @@ BasedOnStyle: Google
 #BasedOnStyle: WebKit
 # ---
 #AccessModifierOffset: -4
-#AlignAfterOpenBracket: Align
+AlignAfterOpenBracket: AlwaysBreak # Values: Align, DontAlign, AlwaysBreak
 #AlignConsecutiveAssignments: true
 #AlignConsecutiveDeclarations: true
 #AlignEscapedNewlinesLeft: true
 #AlignOperands:   false
-AlignTrailingComments: true
+AlignTrailingComments: false # Should be off, causes many dummy problems!!
 #AllowAllParametersOfDeclarationOnNextLine: true
 #AllowShortBlocksOnASingleLine: false
 #AllowShortCaseLabelsOnASingleLine: false
@@ -55,7 +55,7 @@ AlignTrailingComments: true
 BreakBeforeBraces: Allman
 #BreakBeforeTernaryOperators: true
 #BreakConstructorInitializersBeforeComma: false
-#ColumnLimit:     83
+ColumnLimit: 80
 #CommentPragmas:  ''
 #ConstructorInitializerAllOnOneLineOrOnePerLine: true
 #ConstructorInitializerIndentWidth: 4
@@ -77,9 +77,6 @@ IndentWrappedFunctionNames: true
 #MacroBlockEnd:   ''
 MaxEmptyLinesToKeep: 1
 NamespaceIndentation: None
-#ObjCBlockIndentWidth: 2
-#ObjCSpaceAfterProperty: false
-#ObjCSpaceBeforeProtocolList: false
 #PenaltyBreakBeforeFirstCallParameter: 19
 #PenaltyBreakComment: 300
 #PenaltyBreakFirstLessLess: 120
@@ -89,7 +86,7 @@ NamespaceIndentation: None
 DerivePointerAlignment: false
 #PointerAlignment: Left
 ReflowComments:  true # Should be true, otherwise clang-format doesn't touch comments
-SortIncludes:    false
+SortIncludes:    false # TODO - Compilation errors on this!
 #SpaceAfterCStyleCast: false
 SpaceBeforeAssignmentOperators: true
 #SpaceBeforeParens: ControlStatements
@@ -103,5 +100,5 @@ SpaceBeforeAssignmentOperators: true
 Standard:        Cpp11
 TabWidth:        4
 UseTab:          Always # Available options are Never, Always, ForIndentation
-# UseTab:        ForIndentationAndAlignment # Not applicable in 3.8
+# UseTab:        ForIndentationAndAlignment # Not applicable in >= 3.8
 #---

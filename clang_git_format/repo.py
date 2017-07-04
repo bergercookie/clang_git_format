@@ -147,13 +147,12 @@ class Repo(object):
         This constitutes a backbone method for fetching the list of files on
         which clang-format operates on.
         """
-        final_list = [] # final list of files to be processed
         gito = self._callgito(cmd)
 
         # This allows us to pick all the interesting files
         # in the mongo and mongo-enterprise repos
         file_list = [line.rstrip() for line in gito.splitlines()]
-        file_list = self.filter_files_by_dir(file_list)
+        final_list = self.filter_files_by_dir(file_list)
 
 
         files_regexp = self.get_files_regexp()

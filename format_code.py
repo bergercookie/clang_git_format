@@ -493,7 +493,7 @@ class ClangRepoFormatter(object):
                     deleted_files.append(commit_file)
                     continue
 
-                if commit_file in files_to_check
+                if commit_file in files_to_check:
                     self.clang_format.format_func(commit_file)
                 else:
                     logger.info("Skipping file '%s' since it is not a "
@@ -555,10 +555,10 @@ class ClangRepoFormatter(object):
 
         logger.info("reformat_branch is done running.\n"
                     "A copy of your branch has been made named '%s',"
-                    "and formatted with clang-format.\n"
-                    "The original branch has been left unchanged."
-                    "The next step is to rebase the new branch on '%s'..."
-                    % (new_branch, main_branch))
+                    " and formatted with clang-format.\n"
+                    " The original branch has been left unchanged.\n"
+                    " Your new branch should already be rebased on top of %s."
+                    % (new_branch))
 
 
 if __name__ == "__main__":
